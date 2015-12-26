@@ -1,0 +1,561 @@
+<!-- Name: Harish Fulara-->
+<!-- BINGO -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>BINGO</title>
+	<link href="normalize.css" type="text/css" rel="stylesheet" />
+	<style type="text/css">
+		body {
+			background-color: #eee;
+		}
+		canvas {
+			display: inline-block;
+			border: 3px solid black;
+			margin-left: 100px;
+		}
+	</style>	
+</head>
+<body>
+	<div style="margin-top: 45px;">
+		<canvas id="headCanvas" width="460" height="100" style="background-color: #0095dd"></canvas>
+		<canvas id="startCanvas" width="140" height="80" style="background-color: #ffdead"></canvas>
+		<canvas id="scoreCanvas" width="310" height="80" style="background-color: #ffdead; margin-left: 0px"></canvas>
+	</div>
+	<div>
+		<canvas id="gameCanvas" width="460" height="460" style="background-color: #333"></canvas>
+		<canvas id="buttonCanvas" width="460" height="460" style="background-color: #0095dd"></canvas>
+	</div>
+	<!-- The JavaScript, which is the complete brain behind the game-->
+	<script type="text/javascript">
+		//canvas on which game is drawn
+		var gameCanvas = document.getElementById("gameCanvas");
+		var gameCtx = gameCanvas.getContext("2d");
+
+		//canvas on which BINGO heading is drawn
+		var headCanvas = document.getElementById("headCanvas");
+		var headCtx = headCanvas.getContext("2d");
+
+		//canvas on which buttons are drawn
+		var buttonCanvas = document.getElementById("buttonCanvas");
+		var buttonCtx = buttonCanvas.getContext("2d");
+
+		//canvas on which START GAME text is drawn
+		var startCanvas = document.getElementById("startCanvas");
+		var startCtx = startCanvas.getContext("2d");
+
+		//canvas on which user's score is drawn
+		var scoreCanvas = document.getElementById("scoreCanvas");
+		var scoreCtx = scoreCanvas.getContext("2d");
+
+		//Width of the tile
+		var tileWidth = 80;
+		//Height of the tile 
+		var tileHeight = 80;
+		//There are a total of 16 tiles in the 2048 game
+		var numberOfTiles = 25;
+		//Array of objects where each object stores the x-y coordinate and current value of a tile. It also stores a flag value.
+		var tiles = [];
+		//Padding of each tile
+		var padding = 10;
+		//Array to store heading BINGO
+		var heading = [];
+		//Array to store buttons from 1 to 25
+		var buttons = [];
+		//value of button which is clicked
+		var buttonValue = 0;
+		//to check how many tiles have been filled
+		var tilesFilled = 0;
+		//to start the game
+		var startGame = false;
+		//score
+		var score = 25;
+		//to cross out BINGO
+		var bingoCount = 0;
+		var bingoFlag = false;
+		//to play tick sound when user crosses out a number on the 5x5 board
+		var tick = new Audio("assets/tick.mp3");
+		//to play bingo sound when user win's the game
+		var bingoSound = new Audio("assets/bingo.mp3");
+
+		//Event listener for mouse click
+		document.addEventListener("click", mouseClicked, false);
+
+		//function which handles the event when a mouse button is clicked
+		function mouseClicked(event) {
+			//check if the mouse is clicked in gameCanvas
+			if(event.clientX <= gameCanvas.offsetLeft + gameCanvas.width && event.clientX >= gameCanvas.offsetLeft && event.clientY >= gameCanvas.offsetTop && event.clientY <= gameCanvas.offsetTop + gameCanvas.height)
+			{
+				var relativeX = event.clientX - gameCanvas.offsetLeft;
+				var relativeY = event.clientY - gameCanvas.offsetTop;
+
+				if(buttonValue > 0)
+				{
+					for(var i = 0 ; i < 5 ; i++)
+					{
+						for(var j = 0 ; j < 5 ; j++)
+						{
+							if(tiles[i][j].value === 0 && relativeX >= tiles[i][j].x && relativeX <= tiles[i][j].x + tileWidth && relativeY >= tiles[i][j].y && relativeY <= tiles[i][j].y + tileHeight)
+							{
+								tiles[i][j].value = buttonValue;
+								drawValueOnTile(i, j);
+								buttonValue = 0;
+								tilesFilled++;
+								break;
+							}
+						}
+					}
+				}
+				//check whether to start the game or not. Game is started once all the 25 tiles on the board are filled.
+				else if(startGame)
+				{
+					for(var i = 0 ; i < 5 ; i++)
+					{
+						for(var j = 0 ; j < 5 ; j++)
+						{
+							if(!tiles[i][j].flag && tiles[i][j].value > 0 && relativeX >= tiles[i][j].x && relativeX <= tiles[i][j].x + tileWidth && relativeY >= tiles[i][j].y && relativeY <= tiles[i][j].y + tileHeight)
+							{
+								tick.play();
+								crossOutTile(i, j);
+								tiles[i][j].flag = true;
+								score--;
+								drawScore();
+								checkHorizontalBINGO();
+								checkVerticalBINGO();
+								checkCrossBINGO();
+								break;
+							}
+						}
+					}
+				}
+			}
+			//check if mouse is clicked in buttonCanvas
+			else if(event.clientX <= buttonCanvas.offsetLeft + buttonCanvas.width && event.clientX >= buttonCanvas.offsetLeft && event.clientY >= buttonCanvas.offsetTop && event.clientY <= buttonCanvas.offsetTop + buttonCanvas.height)
+			{
+				if(tilesFilled < 25 && buttonValue === 0)
+				{
+					var relativeX = event.clientX - buttonCanvas.offsetLeft;
+					var relativeY = event.clientY - buttonCanvas.offsetTop;
+
+					for(var i = 0 ; i < 5 ; i++)
+					{
+						for(var j = 0 ; j < 5 ; j++)
+						{
+							if(!buttons[i][j].flag && relativeX >= buttons[i][j].x && relativeX <= buttons[i][j].x + tileWidth && relativeY >= buttons[i][j].y && relativeY <= buttons[i][j].y + tileHeight)
+							{
+								buttonValue = buttons[i][j].value;
+								buttons[i][j].flag = true;
+								emptyButtonOnClick(i, j);
+								break;
+							}
+						}
+					}
+				}
+			}
+			//check if mouse is clicked in startCanvas. Once all the 25 tiles are filled, it starts the game.
+			else if(event.clientX <= startCanvas.offsetLeft + startCanvas.width && event.clientX >= startCanvas.offsetLeft && event.clientY >= startCanvas.offsetTop && event.clientY <= startCanvas.offsetTop + startCanvas.height)
+			{
+				if(tilesFilled === 25 && !startGame)
+				{
+					startGame = true;
+					alert("Get Set BINGO!!!");
+				}
+				else if(tilesFilled < 25)
+				{
+					alert("Please fill all the tiles before starting the game");	
+				}
+			}
+		}
+
+		/*
+			Function to drawvalue on a tile 
+		*/
+		function drawValueOnTile(posX, posY) {
+			gameCtx.font = "bold 48px Arial";
+			gameCtx.textAlign = "center";
+			gameCtx.textBaseline = "middle";
+			gameCtx.fillStyle = "#000";
+			gameCtx.fillText(tiles[posX][posY].value.toString(), tiles[posX][posY].x + (tileWidth / 2), tiles[posX][posY].y + (tileHeight / 2));
+		}
+
+		/*
+			Function to empty a button when it is clicked
+		*/
+		function emptyButtonOnClick(posX, posY) {
+			buttonCtx.beginPath();
+			buttonCtx.rect(buttons[posX][posY].x, buttons[posX][posY].y, tileWidth, tileHeight);
+			buttonCtx.fillStyle = "#333";
+			buttonCtx.fill();
+			buttonCtx.closePath();
+		}
+
+		/*
+			Function to cross out a tile when it is clicked after the game has started
+		*/
+		function crossOutTile(posX, posY) {
+			gameCtx.beginPath();
+			gameCtx.moveTo(tiles[posX][posY].x + 10, tiles[posX][posY].y + 10);
+			gameCtx.lineTo(tiles[posX][posY].x + tileWidth - 10, tiles[posX][posY].y + tileHeight - 10);
+			gameCtx.moveTo(tiles[posX][posY].x + tileWidth - 10, tiles[posX][posY].y + 10);
+			gameCtx.lineTo(tiles[posX][posY].x + 10, tiles[posX][posY].y + tileHeight - 10);
+			gameCtx.strokeStyle = "#eee";
+			gameCtx.lineWidth = 3;
+			gameCtx.lineCap = "round";
+			gameCtx.stroke();
+			gameCtx.closePath();
+			//console.log("hi");
+		}
+
+
+		/*
+			Function to initialize the tiles array.
+			The initial coordinates of a tile are (0,0).
+			Initial value of a tile is 0. 0 value means empty tile.
+			Initial value of flag is false. false means user has not yet crossed the value on the tile.
+			Initial value of rowFlag is false.false means the row in which the tile is present has not yet been crossed out.
+			Initial value of colFlag is false.false means the column in which the tile is present has not yet been crossed out.
+			Initial value of diagFlag is false.false means the diagonal (if applicable) in which the tile is present has not yet been crossed out.
+		*/
+		function drawEmptyTilesInit() {
+			for(var i = 0 ; i < 5 ; i++)
+			{
+				tiles[i] = [];
+				for(var j = 0 ; j < 5 ; j++)
+				{
+					tiles[i][j] = {x:0 , y:0 , value:0 , flag:false , rowFlag: false , colFlag:false , diagFlag: false};
+				}
+			}
+		}
+
+		/*
+			Function to initialize the buttons array.
+			The initial coordinates of a buttons are (0,0).
+			Initial value of a button is 0. 0 value means empty tile.
+			Initial value of flag is false. false means that button has not yet been clicked.
+		*/
+		function drawButtonsInit() {
+			for(var i = 0 ; i < 5 ; i++)
+			{
+				buttons[i] = [];
+				for(var j = 0 ; j < 5 ; j++)
+				{
+					buttons[i][j] = {x:0 , y:0 , value:0 , flag:false};
+				}
+			}
+		}
+
+		/*
+			Function to initialize the heading array.
+			The initial coordinates of a heading are (0,0).
+			Initial value of flag is false. false means the bingo header tile has not yet been crossed.
+		*/
+		function drawBINGOHeadingInit() {
+			for(var i = 0 ; i < 5 ; i++)
+			{
+				heading[i] = {x:0 , y:0 , flag:false};
+			}
+		}
+
+		/*
+			Draw empty tiles on the 5x5 board when the game starts
+		*/
+		function drawEmptyTiles() {
+			for(var i = 0 ; i < 5 ; i++)
+			{
+				for(var j = 0 ; j < 5 ; j++)
+				{
+					tiles[i][j].x = ((j + 1) * padding) + (j * tileWidth);
+					tiles[i][j].y = ((i + 1) * padding) + (i * tileHeight);
+					gameCtx.beginPath();
+					gameCtx.rect(tiles[i][j].x, tiles[i][j].y, tileWidth, tileHeight);
+					gameCtx.fillStyle = "#0095dd";
+					gameCtx.fill();
+					gameCtx.closePath();
+				}
+			}
+		}
+
+		/*
+			Draw buttons on the 5x5 board when the game starts
+		*/
+		function drawButtons() {
+			var counter = 1;
+			for(var i = 0 ; i < 5 ; i++)
+			{
+				for(var j = 0 ; j < 5 ; j++)
+				{
+					buttons[i][j].x = ((j + 1) * padding) + (j * tileWidth);
+					buttons[i][j].y = ((i + 1) * padding) + (i * tileHeight);
+					buttons[i][j].value = counter;
+
+					buttonCtx.beginPath();
+					buttonCtx.rect(buttons[i][j].x, buttons[i][j].y, tileWidth, tileHeight);
+					buttonCtx.fillStyle = "#333";
+					buttonCtx.fill();
+					buttonCtx.closePath();
+
+					buttonCtx.font = "bold 48px Arial";
+					buttonCtx.fillStyle = "#fff";
+					buttonCtx.textAlign = "center";
+					buttonCtx.textBaseline = "middle";
+					buttonCtx.fillText(counter.toString(), buttons[i][j].x + (tileWidth / 2), buttons[i][j].y + (tileHeight / 2));
+
+					counter++;
+				}
+			}
+		}
+
+		/*
+			Draw BINGO heading on the 5x5 board when the game starts
+		*/
+		function drawBINGOHeading() {
+			for(var i = 0 ; i < 5 ; i++)
+			{
+				var textValue;
+
+				switch(i)
+				{
+					case 0: textValue = "B"; headCtx.fillStyle = "#00ff7f";
+					break;
+					case 1: textValue = "I"; headCtx.fillStyle = "#ffa500";
+					break;
+					case 2: textValue = "N"; headCtx.fillStyle = "#ff00ff";
+					break;
+					case 3: textValue = "G"; headCtx.fillStyle = "#ee82ee";
+					break;
+					case 4: textValue = "O"; headCtx.fillStyle = "#ffc0cb";
+					break;
+				}
+
+				heading[i].x = ((i + 1) * padding) + (i * tileWidth);
+				heading[i].y = padding;
+				headCtx.beginPath();
+				headCtx.rect(heading[i].x, heading[i].y, tileWidth, tileHeight);
+				headCtx.fill();
+				headCtx.closePath();
+
+				headCtx.font = "bold 48px Arial";
+				headCtx.fillStyle = "#fff";
+				headCtx.textAlign = "center";
+				headCtx.textBaseline = "middle";
+				headCtx.fillText(textValue, heading[i].x + (tileWidth / 2), heading[i].y + (tileHeight / 2));
+			}
+		}
+
+		/*
+			Draw Start Text
+		*/
+		function drawStart() {
+			startCtx.font = "bold 32px Arial"
+			startCtx.textAlign = "center";
+			startCtx.textBaseline = "bottom";
+			startCtx.fillStyle = "#000";
+			startCtx.fillText("START", startCanvas.width / 2, startCanvas.height / 2);
+			startCtx.textBaseline = "top";
+			startCtx.fillText("GAME", startCanvas.width / 2, startCanvas.height / 2);
+		}
+
+		/*
+			Draw score
+		*/
+		function drawScore() {
+			scoreCtx.beginPath();
+			scoreCtx.rect(0, 0, scoreCanvas.width, scoreCanvas.height);
+			scoreCtx.fillStyle = "#ffdead";
+			scoreCtx.fill();
+			scoreCtx.closePath();
+			//console.log("hi");
+			
+			scoreCtx.font = "bold 32px Arial"
+			scoreCtx.textAlign = "center";
+			scoreCtx.textBaseline = "middle";
+			scoreCtx.fillStyle = "#000";
+			scoreCtx.fillText("SCORE: " + score, scoreCanvas.width / 2, scoreCanvas.height / 2);
+		}
+
+		/*
+			Function to check whether all values in a row are crossed out
+		*/
+		function checkHorizontalBINGO()
+		{
+			for(var i = 0 ; i < 5 ; i++)
+			{
+				if(!tiles[i][0].rowFlag && !tiles[i][1].rowFlag && !tiles[i][2].rowFlag && !tiles[i][3].rowFlag && !tiles[i][4].rowFlag)
+				{
+					if(tiles[i][0].flag && tiles[i][1].flag && tiles[i][2].flag && tiles[i][3].flag && tiles[i][4].flag)
+					{
+						tiles[i][0].rowFlag = true;
+						tiles[i][1].rowFlag = true;
+						tiles[i][2].rowFlag = true;
+						tiles[i][3].rowFlag = true;
+						tiles[i][4].rowFlag = true;
+
+						gameCtx.beginPath();
+						gameCtx.moveTo(tiles[i][0].x + 10, tiles[i][0].y + tileHeight / 2);
+						gameCtx.lineTo(tiles[i][4].x + tileWidth - 10, tiles[i][4].y + tileHeight /2);
+						gameCtx.strokeStyle = "#ff0000";
+						gameCtx.lineWidth = 3;
+						gameCtx.lineCap = "round";
+						gameCtx.stroke();
+						gameCtx.closePath();
+
+						bingoCount++;
+						bingoFlag = true;
+						crossOutBINGO();
+
+						break;
+					}
+				}
+			}
+		}
+
+		/*
+			Function to check whether all values in a column are crossed out
+		*/
+		function checkVerticalBINGO()
+		{
+			for(var i = 0 ; i < 5 ; i++)
+			{
+				if(!tiles[0][i].colFlag && !tiles[1][i].colFlag && !tiles[2][i].colFlag && !tiles[3][i].colFlag && !tiles[4][i].colFlag)
+				{
+					if(tiles[0][i].flag && tiles[1][i].flag && tiles[2][i].flag && tiles[3][i].flag && tiles[4][i].flag)
+					{
+						tiles[0][i].colFlag = true;
+						tiles[1][i].colFlag = true;
+						tiles[2][i].colFlag = true;
+						tiles[3][i].colFlag = true;
+						tiles[4][i].colFlag = true;
+
+						gameCtx.beginPath();
+						gameCtx.moveTo(tiles[0][i].x + tileWidth / 2, tiles[0][i].y + 10);
+						gameCtx.lineTo(tiles[4][i].x + tileWidth / 2, tiles[4][i].y + tileHeight - 10);
+						gameCtx.strokeStyle = "#ff0000";
+						gameCtx.lineWidth = 3;
+						gameCtx.lineCap = "round";
+						gameCtx.stroke();
+						gameCtx.closePath();
+
+						bingoCount++;
+						bingoFlag = true;
+						crossOutBINGO();
+
+						break;
+					}
+				}
+			}
+		}
+
+		/*
+			Function to check whether all values in a diagonal are crossed out
+		*/
+		function checkCrossBINGO()
+		{
+			if(!tiles[0][0].diagFlag && !tiles[1][1].diagFlag && !tiles[3][3].diagFlag && !tiles[4][4].diagFlag)
+			{
+				if(tiles[0][0].flag && tiles[1][1].flag && tiles[2][2].flag && tiles[3][3].flag && tiles[4][4].flag)
+				{
+					tiles[0][0].diagFlag = true;
+					tiles[1][1].diagFlag = true;
+					tiles[2][2].diagFlag = true;
+					tiles[3][3].diagFlag = true;
+					tiles[4][4].diagFlag = true;
+					
+					gameCtx.beginPath();
+					gameCtx.moveTo(tiles[0][0].x + 10, tiles[0][0].y + 10);
+					gameCtx.lineTo(tiles[4][4].x + tileWidth - 10, tiles[4][4].y + tileHeight - 10);
+					gameCtx.strokeStyle = "#ff0000";
+					gameCtx.lineWidth = 3;
+					gameCtx.lineCap = "round";
+					gameCtx.stroke();
+					gameCtx.closePath();
+
+					bingoCount++;
+					bingoFlag = true;
+					crossOutBINGO();
+				}
+			}
+			if(!tiles[0][4].diagFlag && !tiles[1][3].diagFlag && !tiles[3][1].diagFlag && !tiles[4][0].diagFlag)
+			{
+				if(tiles[0][4].flag && tiles[1][3].flag && tiles[2][2].flag && tiles[3][1].flag && tiles[4][0].flag)
+				{
+					tiles[0][4].diagFlag = true;
+					tiles[1][3].diagFlag = true;
+					tiles[2][2].diagFlag = true;
+					tiles[3][1].diagFlag = true;
+					tiles[4][0].diagFlag = true;
+					
+					gameCtx.beginPath();
+					gameCtx.moveTo(tiles[0][4].x + tileWidth - 10, tiles[0][4].y + 10);
+					gameCtx.lineTo(tiles[4][0].x + 10, tiles[4][0].y + tileHeight - 10);
+					gameCtx.strokeStyle = "#ff0000";
+					gameCtx.lineWidth = 3;
+					gameCtx.lineCap = "round";
+					gameCtx.stroke();
+					gameCtx.closePath();
+
+					bingoCount++;
+					bingoFlag = true;
+					crossOutBINGO();
+				}
+			}
+		}
+
+		/*
+			function to crossout bingo in the header
+		*/
+		function crossOutBINGO() {
+			if(bingoFlag)
+			{
+				var pos = bingoCount - 1;
+
+				if(!heading[pos].flag)
+				{
+					heading[pos].flag = true;
+					headCtx.beginPath();
+					headCtx.moveTo(heading[pos].x + 10, heading[pos].y + 10);
+					headCtx.lineTo(heading[pos].x + tileWidth - 10, heading[pos].y + tileHeight - 10);
+					headCtx.moveTo(heading[pos].x + tileWidth - 10, heading[pos].y + 10);
+					headCtx.lineTo(heading[pos].x + 10, heading[pos].y + tileHeight - 10);
+					headCtx.strokeStyle = "#000";
+					headCtx.lineWidth = 3;
+					headCtx.lineCap = "round";
+					headCtx.stroke();
+					headCtx.closePath();
+				}
+				else
+				{
+					bingoCount--;
+				}
+
+				bingoFlag = false;
+				checkGameOver();
+				//console.log("hi");
+			}
+		}
+
+		/*
+			function to check if user has won the game
+		*/
+		function checkGameOver()
+		{
+			if(heading[0].flag && heading[1].flag && heading[2].flag && heading[3].flag && heading[4].flag)
+			{
+				bingoSound.play();
+				alert("BINGO!!! You Won The GAME");
+				document.location.reload();
+			}
+		}
+
+		drawStart();
+		drawScore();
+		drawEmptyTilesInit();
+		drawEmptyTiles();
+		drawBINGOHeadingInit();
+		drawBINGOHeading();
+		drawButtonsInit();
+		drawButtons();
+	</script>
+</body>
+</html>
