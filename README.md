@@ -17,4 +17,4 @@ You can find the demo of the game [here] (http://htmlpreview.github.io/?https://
 
 You can play this game [here] (https://letsplayagame.herokuapp.com/gamebingohome/)
 
-You can find other games that i made [here] (https://letsplayagame.herokuapp.com/games/)
+You can play other games that i made [here] (https://letsplayagame.herokuapp.com/games/)
