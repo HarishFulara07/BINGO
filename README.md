@@ -11,7 +11,7 @@ This is JavaScript implementation of the popular multiplayer game - BINGO!!!!. J
 5. Now all the players will call out numbers one by one in turn and then all players will click on that number on the left 5x5 board and that number will get crossed out.
 6. Continue the game till one of the players get all his BINGO tiles crossed out and wins the game.
 
-
+<br>
 
 You can find the demo of the game [here] (http://htmlpreview.github.io/?https://github.com/HarishFulara07/BINGO/blob/master/index.html)
 
