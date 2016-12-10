@@ -12,3 +12,5 @@ This is JavaScript implementation of the popular multiplayer game - BINGO!!!!. J
 6. Continue the game till one of the players get all his BINGO tiles crossed out and wins the game.
 
 You can find the demo of the game [here] (http://htmlpreview.github.io/?https://github.com/HarishFulara07/BINGO/blob/master/index.html)
+
+You can play this game [here] (https://letsplayagame.herokuapp.com/gamebingohome/)
